@@ -3,35 +3,80 @@ import {
   DefaultViewerParams,
   SpeckleLoader,
   ViewerEvent,
-  // SpeckleDepthMaterial
+  IViewer
 } from "@speckle/viewer";
 import { CameraController } from "@speckle/viewer";
-import { makeInputsUI } from "./InputsUI";
 import * as fal from "@fal-ai/serverless-client";
+import { Pane } from "tweakpane";
+
+export const inputParams = {
+  api: "",
+  seed: 7482035931,
+  prompt: "american house, northeast suburb, summer, exterior, early afternoon,  classic style",
+};
+
+let aiApi = 'your_api_key';
+let aiSeed = 7482035931;
+let aiPromptText = "american house, northeast suburb, summer, exterior, early afternoon,  classic style, ";
+let image = "";
+//RAW Photo, high end, 8k, film grain, high quality, fujifilm, dramatic sky, architecture rendering,
+
+function makeInputsUI(viewer: IViewer) {
+  const pane = new Pane({ title: "AI Inputs", expanded: true,  });
+  pane
+    .addBinding(inputParams, "prompt", {
+      label: "Prompt",
+      readonly: false,
+      }).on("change", () => {
+        aiPromptText = inputParams.prompt; 
+      });
+
+
+    pane.addBinding(inputParams, "api", {
+      label: "API Key",
+      readonly: false,
+      }) .on("change", () => {
+        aiApi = inputParams.api; 
+      });
+
+      // pane.addBinding(inputParams, "speckle", {
+      // label: "Speckle Stream",
+      // readonly: false,
+      // });
+  pane.addBinding(inputParams, "seed", {
+      label: "Seed",
+      step: 1,
+    })
+    .on("change", () => {
+      aiSeed = inputParams.seed; 
+    });
+
+  pane.addButton({
+      title: "Update Image",
+    })
+    .on("click", () => {
+      runFAL();
+    });
+  }
 
 
 
 async function runFAL() {
-
   fal.config({
-    credentials: "YOUR_KEY_HERE",
-    proxyUrl: '/api/fal/proxy', // the built-int nextjs proxy
-    // proxyUrl: 'http://localhost:1234/api/fal/proxy', // or your own external proxy
+    credentials: aiApi,
   });
 
   const result = await fal.subscribe("comfy/lukegehron/speckle_ai", {
-  input: {
-    ksampler_seed: 123498235498246,
-    cliptextencode_text: "RAW Photo of a american house, high end, typical northeastern suburb, summer, exterior, early afternoon, 8k, film grain, high quality, fujifilm, dramatic sky, classic french countryside style, architecture rendering,",
-    image_load_image_path: "", 
-  },
-  logs: false,
-});
-  console.log(result);
+    input: {
+      ksampler_seed: aiSeed,
+      cliptextencode_text: aiPromptText + ", RAW Photo, high end, 8k, film grain, high quality, fujifilm, dramatic sky, architecture rendering",
+      image_load_image_path: image,
+    },
+    logs: false,
+  });
+  document.getElementById('image').src = result.outputs[51].images[0].url;
 }
 
-console.log("Starting FAL");
-runFAL(); 
 
 async function main() {
   /** Get the HTML container */
@@ -39,7 +84,6 @@ async function main() {
 
   /** Configure the viewer params */
   const params = DefaultViewerParams;
-  console.log(params)
   params.verbose = true;
 
 
@@ -56,7 +100,6 @@ async function main() {
   const loader = new SpeckleLoader(
     viewer.getWorldTree(),
     "https://latest.speckle.dev/streams/92b620fb17/objects/801360a35cd00c13ac81522851a13341",
-    // "https://app.speckle.systems/streams/eda93f4cb6/objects/8798429cec15e9bc5f6085f980ea272a",
     ""
   );
   
@@ -64,9 +107,8 @@ async function main() {
   await viewer.loadObject(loader, true);
 
   async function displayImage() {
-    let result = await viewer.screenshot();
-    document.getElementById('image').src = result;
-    console.log(result)
+    image = await viewer.screenshot();
+    document.getElementById('image').src = image;
 }
   viewer.on(ViewerEvent.ObjectClicked, (event) => {
     displayImage()
@@ -79,8 +121,6 @@ async function main() {
   setTimeout(() => {
 
   viewer.resize()
-    let myScreenshot = viewer.screenshot();
-  console.log(myScreenshot)
 
   }, 1000);
 }
